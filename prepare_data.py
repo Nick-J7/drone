@@ -4,11 +4,7 @@ import os.path as osp
 import time
 import random
 
-import numpy as np
 import pandas as pd
-
-import torch
-import torchvision.transforms as transforms
 
 import pdb
 
@@ -98,11 +94,14 @@ def generate_data(folders):
         current_dataframe = pd.read_csv(osp.join(folder, rec_filename), sep='\t')
 
         for i in range(1, current_dataframe.shape[0] - 1):
+            # Set path of image for loading in torch.utils.data.DataLoader
             imagepath = osp.join(folder, 'images', current_dataframe.iloc[i]['ImageName'])
-            #previous_state = list(current_dataframe.iloc[i-1][['Timestamp', 'Speed (kmph)', 'Throttle', 'Brake', 'Gear']])
+
+            # Label is average of {(t-1), t, (t+1) steering angle}
             current_label = (current_dataframe.iloc[i-1]['Steering'] +
                              current_dataframe.iloc[i]['Steering'] +
                              current_dataframe.iloc[i+1]['Steering']) / 3.0
+            # Record previous state
             previous_row = current_dataframe.iloc[i-1]
 
             current_tuple = (
@@ -116,6 +115,8 @@ def generate_data(folders):
                 )
             
             all_data.append(current_tuple)
+
+    random.shuffle(all_data)
     
     train_eval_test_split = (0.7, 0.2, 0.1)
     train, validation, test= split_data(all_data, train_eval_test_split)
