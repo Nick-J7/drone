@@ -1,3 +1,4 @@
 *.zip
 data_raw
 cooked_data
+__pycache__/*
