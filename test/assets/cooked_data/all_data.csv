@@ -1,0 +1,17 @@
+Imagepath,Timestamp,Speed (kmph),Throttle,Brake,Gear,Label
+test/assets/data_raw/swerve_1/images/img_2.png,357215555,0,0.047059,0.0,N,-0.047404
+test/assets/data_raw/normal_1/images/img_1.png,93683464,0,0.0,0.0,N,-0.011841
+test/assets/data_raw/normal_1/images/img_4.png,93689624,0,0.0,0.0,N,-0.035522
+test/assets/data_raw/swerve_1/images/img_3.png,357215579,0,0.047059,0.0,N,-0.048733
+test/assets/data_raw/swerve_1/images/img_7.png,357215771,0,0.098039,0.0,N,-0.068549
+test/assets/data_raw/normal_1/images/img_8.png,93689624,0,0.0,0.0,N,-0.036851
+test/assets/data_raw/normal_1/images/img_2.png,93689595,0,0.0,0.0,N,-0.023681
+test/assets/data_raw/normal_1/images/img_3.png,93689624,0,0.0,0.0,N,-0.035522
+test/assets/data_raw/normal_1/images/img_7.png,93689624,0,0.0,0.0,N,-0.035522
+test/assets/data_raw/swerve_1/images/img_1.png,357215531,0,0.0,0.0,N,-0.047404
+test/assets/data_raw/swerve_1/images/img_4.png,357215627,0,0.14902,0.015686,N,-0.051378
+test/assets/data_raw/normal_1/images/img_5.png,93689624,0,0.0,0.0,N,-0.035522
+test/assets/data_raw/swerve_1/images/img_5.png,357215675,0,0.14902,0.015686,N,-0.055352
+test/assets/data_raw/swerve_1/images/img_8.png,357215819,0,0.098039,0.0,N,-0.081747
+test/assets/data_raw/swerve_1/images/img_6.png,357215723,0,0.164706,0.0,N,-0.060628
+test/assets/data_raw/normal_1/images/img_6.png,93689624,0,0.0,0.0,N,-0.035522

@@ -10,7 +10,7 @@ class Tester(unittest.TestCase):
     """Test prepare_data."""
 
     RAW_DATA_DIR = 'test/assets/data_raw'
-    COOKED_DATA_DIR = 'test/assets/data/cooked_data'
+    COOKED_DATA_DIR = 'test/assets/cooked_data'
     
     data_folders = sorted(os.listdir('test/assets/data_raw'))
     full_path_data_folders = [os.path.join('test/assets/data_raw', f) for f in data_folders]
@@ -53,6 +53,15 @@ class Tester(unittest.TestCase):
         all_data = generate_data(Tester.full_path_data_folders)
 
         self.assertEqual(len(all_data), num_of_cooked_data)
+
+    def test_make_data(self):
+
+        make_data(Tester.full_path_data_folders, Tester.COOKED_DATA_DIR)
+        file_list = os.listdir(Tester.COOKED_DATA_DIR)
+        self.assertIn('all_data.csv', file_list)
+        self.assertIn('train.csv', file_list)
+        self.assertIn('validation.csv', file_list)
+        self.assertIn('test.csv', file_list)
 
 
 if __name__ == '__main__':

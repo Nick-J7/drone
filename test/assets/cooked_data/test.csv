@@ -1,0 +1,3 @@
+Imagepath,Timestamp,Speed (kmph),Throttle,Brake,Gear,Label
+test/assets/data_raw/swerve_1/images/img_6.png,357215723,0,0.164706,0.0,N,-0.060628
+test/assets/data_raw/normal_1/images/img_6.png,93689624,0,0.0,0.0,N,-0.035522
