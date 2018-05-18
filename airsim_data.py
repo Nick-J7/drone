@@ -119,14 +119,32 @@ class ToTensor(object):
         label = torch.FloatTensor([label])
 
         return {'image':image, 'label':label}
-         
+
+
+def get_data_count(csv_file_path):
+    """Get count of each class.
+        
+        Beacause label is float(continuous), 
+        split into two groups by (0, not 0).
+
+    Args:
+        csv_file_path (string): path of data file
+
+    Returns:
+        tuple: count of (0, not 0)
+    """
+    dataframe = pd.read_csv(csv_file_path)
+    nonzero_count = dataframe.astype(bool)['Label'].sum(axis=0)
+    return dataframe.shape[0] - nonzero_count, nonzero_count
+
 
 if __name__ == '__main__':
 
     import matplotlib.pyplot as plt
 
     transform = torchvision.transforms.Compose([
-        ROICrop((0, 74, 256, 144))
+        #ROICrop((0, 74, 256, 144)),
+        #BrightJitter(0.7),
         ])
     airsim_dataset = AirSimDataSet(csv_file_path='cooked_data/train.csv', 
                                    transform=transform)

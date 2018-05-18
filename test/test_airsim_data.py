@@ -51,6 +51,12 @@ class Tester(unittest.TestCase):
                 plt.show()
                 break
 
+    def test_get_data_count(self):
+        zero_count, nonzero_count = get_data_count(
+            csv_file_path='test/assets/cooked_data/all_data.csv')
+        self.assertIs(int(zero_count), 0)
+        self.assertIs(int(nonzero_count), 16)
+
 
 if __name__ == '__main__':
     unittest.main()
