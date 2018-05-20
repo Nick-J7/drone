@@ -77,7 +77,7 @@ class ROICrop(object):
 
 
 class BrightJitter(object):
-    """ Randomly change the brightness of an image.
+    """Randomly change the brightness of an image.
 
     Args:
         brightness (float): How much to jitter brightness. brightness_factor
@@ -99,6 +99,11 @@ class BrightJitter(object):
 
 
 class HorizontalFlip(object):
+    """Horizontally flip the given PIL Image randomly with a given probability.
+
+    Args:
+        prob (float): probability of the image being flipped. Default value is 0.5
+    """
 
     def __init__(self, prob=0.5):
         self.prob = prob
