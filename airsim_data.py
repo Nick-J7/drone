@@ -14,14 +14,14 @@ import pdb
 class AirSimDataSet(torch.utils.data.Dataset):
     """AirSim dataset."""
 
-    def __init__(self, csv_file_path, transform=None):
+    def __init__(self, csv_filepath, transform=None):
         """
         Args:
             csv_file_path (string): Path to the csv file about data.
             transform (callable, optional): Optional transform to be applied
                 on a sample.
         """
-        self.airsim_dataframe = pd.read_csv(csv_file_path)
+        self.airsim_dataframe = pd.read_csv(csv_filepath)
         self.transform = transform
 
     def __len__(self):
@@ -36,17 +36,17 @@ class AirSimDataSet(torch.utils.data.Dataset):
             tuple: (image, label) where label is target steering angle.
         """
         # Full path of image.
-        img_path = self.airsim_dataframe.iloc[0,0]
+        img_path = self.airsim_dataframe.iloc[idx, 0]
         image = pil_loader(img_path) 
         
         # Target steering angle.
-        label = self.airsim_dataframe.iloc[0,-1]
+        label = self.airsim_dataframe.iloc[idx, -1]
         sample = {'image':image, 'label':label}
 
         if self.transform is not None:
             sample = self.transform(sample)
 
-        return (sample['image'], sample['label'])
+        return (img_path, sample['image'], sample['label'])
 
 
 def pil_loader(path):
@@ -98,6 +98,21 @@ class BrightJitter(object):
         return {'image':image, 'label':label}
 
 
+class HorizontalFlip(object):
+
+    def __init__(self, prob=0.5):
+        self.prob = prob
+
+    def __call__(self, sample):
+        image, label = sample['image'], sample['label']
+
+        if random.random() < self.prob:
+            return {'image':image.transpose(Image.FLIP_LEFT_RIGHT),
+                    'label':-label}
+        else:
+            return sample
+
+
 class ToTensor(object):
     """Convert sample to Tensors."""
     
@@ -113,7 +128,7 @@ class ToTensor(object):
         # Swap color axis because
         # numpy image: H x W x C
         # torch image: C x H x W
-        image = image.transpose(0, 1).transpose(1, 2).contiguous()
+        image = image.transpose(0, 1).transpose(0, 2).contiguous()
         image = image.float().div(255)
 
         label = torch.FloatTensor([label])

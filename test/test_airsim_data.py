@@ -30,13 +30,33 @@ class Tester(unittest.TestCase):
         result = jitter(Tester.sample)
         self.assertFalse((np.array(result['image']) == np.array(Tester.sample['image'])).all())
 
+    def test_horizontalFlip(self):
+        flip = HorizontalFlip(1)
+        result = flip(Tester.sample)
+
+        self.assertEqual(Tester.sample['label'], -result['label'])
+
+        ax = plt.subplot(1, 2, 1)
+        plt.tight_layout()
+        ax.set_title('original')
+        ax.axis('off')
+        plt.imshow(Tester.sample['image'])
+
+        ax = plt.subplot(1, 2, 2)
+        plt.tight_layout()
+        ax.set_title('flipped')
+        ax.axis('off')
+        plt.imshow(result['image'])
+        plt.show()
+
     def test_ToTensor(self):
         result = ToTensor()(Tester.sample)
         self.assertIsInstance(result['image'], torch.FloatTensor)
         self.assertIsInstance(result['label'], torch.FloatTensor)
+        self.assertEqual(result['image'].shape, torch.Size([3, 144, 256]))
 
     def test_airsimdataset(self):
-        airsim_dataset = AirSimDataSet(csv_file_path='test/assets/cooked_data/train.csv')
+        airsim_dataset = AirSimDataSet(csv_filepath='test/assets/cooked_data/train.csv')
         for i in range(len(airsim_dataset)):
             image, label = airsim_dataset[i]
             print(i, 'image:', image.size, 'label:', label)
