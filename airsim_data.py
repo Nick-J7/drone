@@ -76,6 +76,25 @@ class ROICrop(object):
         return {'image':image, 'label':label}
 
 
+class Resize(object):
+    r"""Resize the image to the given size.
+
+    Args:
+        size (sequence or int): Desired output size. If size is a sequence like
+        (h, w), the output size will be matched to this. 
+        interpolation (int, optional): Desired interpolation. Default is
+            'PIL.Image.BILINEAR'
+    """
+    def __init__(self, size, interpolation=Image.BILINEAR):
+        self.size = size
+
+    def __call__(self, sample):
+        image, label = sample['image'], sample['label']
+        image = image.resize(size[::-1], interpolation)
+
+        return {'image':image, 'label':label}
+
+
 class BrightJitter(object):
     """Randomly change the brightness of an image.
 

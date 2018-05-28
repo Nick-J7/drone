@@ -25,6 +25,10 @@ class Tester(unittest.TestCase):
         result = crop(Tester.sample)
         self.assertEqual(result['image'].size, (256, 70))
 
+    # TODO: test resize
+    def test_Resize(self):
+        pass
+
     def test_BrightJitter(self):
         jitter = BrightJitter(0.3)
         result = jitter(Tester.sample)
