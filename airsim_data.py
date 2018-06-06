@@ -19,7 +19,7 @@ class AirSimDataSet(torch.utils.data.Dataset):
         Args:
             csv_file_path (string): Path to the csv file about data.
             transform (callable, optional): Optional transform to be applied
-                on a sample.
+            on a sample.
         """
         self.airsim_dataframe = pd.read_csv(csv_filepath)
         self.transform = transform
@@ -38,15 +38,30 @@ class AirSimDataSet(torch.utils.data.Dataset):
         # Full path of image.
         img_path = self.airsim_dataframe.iloc[idx, 0]
         image = pil_loader(img_path) 
-        
+       
         # Target steering angle.
         label = self.airsim_dataframe.iloc[idx, -1]
-        sample = {'image':image, 'label':label}
+        label = float(label)
+
+        # Get state of this timestamp (size: 4)
+        # 0: speed, 1: throttle, 2: brake, 3: gear
+        car_state = self.airsim_dataframe.iloc[idx, 2:-1]
+        car_state = car_state.tolist()
+        if car_state[-1] == 'N':
+            car_state[-1] = 0
+        else:
+            car_state[-1] = float(car_state[-1])
+        car_state[0] *= 0.01
+        car_state[-1] *= 0.1
+        car_state = np.array(car_state, dtype=np.float64)
+
+
+        sample = {'image':image, 'label':label, 'state':car_state}
 
         if self.transform is not None:
             sample = self.transform(sample)
 
-        return (img_path, sample['image'], sample['label'])
+        return (img_path, sample['image'], sample['state'], sample['label'])
 
 
 def pil_loader(path):
@@ -70,10 +85,10 @@ class ROICrop(object):
         self.box = box
 
     def __call__(self, sample):
-        image, label = sample['image'], sample['label']
-        image = image.crop(self.box)
+        image = sample['image']
+        sample['image'] = image.crop(self.box)
 
-        return {'image':image, 'label':label}
+        return sample
 
 
 class Resize(object):
@@ -89,10 +104,11 @@ class Resize(object):
         self.size = size
 
     def __call__(self, sample):
-        image, label = sample['image'], sample['label']
+        image = sample['image']
         image = image.resize(size[::-1], interpolation)
+        sample['image'] = image
 
-        return {'image':image, 'label':label}
+        return sample
 
 
 class BrightJitter(object):
@@ -111,10 +127,12 @@ class BrightJitter(object):
         assert self.brightness > 0
         brightness_factor = random.uniform(max(0, 1 - self.brightness), 1 + self.brightness)
 
-        image, label = sample['image'], sample['label']
+        image = sample['image']
         enhancer = ImageEnhance.Brightness(image)
         image = enhancer.enhance(brightness_factor)
-        return {'image':image, 'label':label}
+        sample['image'] = image
+
+        return sample
 
 
 class HorizontalFlip(object):
@@ -128,11 +146,13 @@ class HorizontalFlip(object):
         self.prob = prob
 
     def __call__(self, sample):
-        image, label = sample['image'], sample['label']
+        image, label, state = sample['image'], sample['label'], sample['state']
 
         if random.random() < self.prob:
+            state[1] = -state[1]
             return {'image':image.transpose(Image.FLIP_LEFT_RIGHT),
-                    'label':-label}
+                    'label':-label,
+                    'state':state}
         else:
             return sample
 
@@ -141,7 +161,7 @@ class ToTensor(object):
     """Convert sample to Tensors."""
     
     def __call__(self, sample):
-        pic, label = sample['image'], sample['label']
+        pic, label, state = sample['image'], sample['label'], sample['state']
 
         # Support only PIL.Image.Image and 'RGB' mode
         assert isinstance(pic, Image.Image) and pic.mode == 'RGB'
@@ -156,8 +176,9 @@ class ToTensor(object):
         image = image.float().div(255)
 
         label = torch.FloatTensor([label])
+        state = torch.FloatTensor(state)
 
-        return {'image':image, 'label':label}
+        return {'image':image, 'label':label, 'state':state}
 
 
 def get_data_count(csv_file_path):
@@ -185,10 +206,11 @@ if __name__ == '__main__':
         #ROICrop((0, 74, 256, 144)),
         #BrightJitter(0.7),
         ])
-    airsim_dataset = AirSimDataSet(csv_file_path='cooked_data/train.csv', 
+    airsim_dataset = AirSimDataSet(csv_filepath='cooked_data/train.csv', 
                                    transform=transform)
     for i in range(len(airsim_dataset)):
-        image, label = airsim_dataset[i]
+        img_path, image, state, label = airsim_dataset[i]
+        pdb.set_trace()
         print(i, 'iamge:', image.size, 'label:', label)
 
         ax = plt.subplot(1, 4, i + 1)

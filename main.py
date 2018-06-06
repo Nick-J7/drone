@@ -1,5 +1,6 @@
 import argparse
 import logging
+import shutil
 import time
 
 import numpy as np
@@ -10,18 +11,19 @@ import torch.utils.data
 import torch.nn as nn
 import torchvision.transforms
 from torch.autograd import Variable
+from tensorboardX import SummaryWriter
 
 from airsim_data import (AirSimDataSet, ROICrop, BrightJitter, HorizontalFlip,
                          ToTensor, get_data_count)
 from my_densenet import densenet_drone
+from my_densenet import simple_net 
 
 import pdb
 
 
 def main(args, logger):
 
-    # Set parameter
-    cudnn.benchmark = True
+    board_writer = SummaryWriter() 
 
     train_csv = 'cooked_data/train.csv'
     val_csv = 'cooked_data/validation.csv'
@@ -31,7 +33,9 @@ def main(args, logger):
     val_dataloader = get_loader(val_csv, usage='validate', args=args)
     #test_dataloader = get_loader(test_csv, usage='test', args=args)
 
-    model = densenet_drone()
+    #model = densenet_drone()
+    model = simple_net()
+
     model = model.cuda()
 
     criterion = nn.MSELoss()
@@ -45,18 +49,49 @@ def main(args, logger):
     else:
         raise NameError("[!] {} is not prepared.".format(args.optim))
 
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1) 
+    if args.resume:
+        if os.path.isfile(args.resume):
+            logger.debug("Loading checkpoint => {}".format(args.resume))
+            checkpoint_state = torch.load(args.resume)
+            start_epoch = checkpoint_state['epoch']
+            best_loss = checkpoint_state['best_loss']
+            model.load_state_dict(checkpoint_state['state_dict'])
+            optimizer.load_state_dict(checkpoint_state['optimizer'])
 
+    #scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1) 
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 
+                                                           factor=0.5,
+                                                           patience=3, 
+                                                           min_lr=0.00001,
+                                                           verbose=True)
+
+    
+    best_loss = 100 
     for epoch in range(args.epochs):
 
-        scheduler.step()
-        logger.debug("[*] Epoch [{}/{}], Learning rate: {}"
-                     .format(epoch, args.epochs, scheduler.get_lr()))
+        #scheduler.step()
+#        logger.debug("[*] Epoch [{}/{}], Learning rate: {}"
+#                     .format(epoch, args.epochs, scheduler.get_lr()))
+        logger.debug("[*] Epoch [{}/{}]"
+                     .format(epoch, args.epochs))
         
-        train(train_dataloader, model, criterion, optimizer, args, logger)
-        validate(val_dataloader, model, criterion, args, logger)
+        train_loss = train(train_dataloader, model, criterion, optimizer, args, logger)
+        val_loss = validate(val_dataloader, model, criterion, args, logger)
+        scheduler.step(val_loss)
+        
 
         #TODO: save parameters
+        is_best = best_loss > val_loss
+        best_loss = min(best_loss, val_loss)
+        save_checkpoint({
+            'epoch': epoch,
+            'state_dict': model.state_dict(),
+            'best_loss': best_loss,
+            'optimizer': optimizer.state_dict(),
+            }, is_best)
+
+        board_writer.add_scalar('Train Loss', train_loss, epoch)
+        board_writer.add_scalar('Val Loss', val_loss, epoch)
 
     logger.debug("[*] Finish Training !!!")
 
@@ -99,19 +134,20 @@ def train(dataloader, model, criterion, optimizer, args, logger):
     model.train()
 
     end = time.time()
-    for i, (path, input, target) in enumerate(dataloader):
-
+    for i, (path, input, state, target) in enumerate(dataloader):
         cur_data_time = time.time() - end
         data_time.add(cur_data_time)
 
         if not torch.cuda.is_available():
             input = Variable(input)
+            state = Variable(state)
             target = Variable(target)
         else:
             input = Variable(input).cuda()
+            state = Variable(state).cuda()
             target = Variable(target).cuda(non_blocking=True)
 
-        output = model(input)
+        output = model(input, state)
 
         loss = criterion(output, target)
 
@@ -136,6 +172,8 @@ def train(dataloader, model, criterion, optimizer, args, logger):
                 data_time=cur_data_time,
                 model_time=cur_model_time,
                 loss=loss.item()))
+#            logger.debug("output:, {}\n"
+#                         "target:, {}".format(output[0].item(), target[0].item()))
 
     logger.debug("Finish training !\n"
                  "Average data time: {data_time:2.2f} | "
@@ -158,19 +196,21 @@ def validate(dataloader, model, criterion, args, logger):
 
     with torch.no_grad():
         end = time.time()
-        for i, (path, input, target) in enumerate(dataloader):
+        for i, (path, input, state, target) in enumerate(dataloader):
 
             cur_data_time = time.time() - end
             data_time.add(cur_data_time)
 
             if not torch.cuda.is_available():
                 input = Variable(input)
+                state = Variable(state)
                 target = Variable(target)
             else:
                 input = Variable(input).cuda()
+                state = Variable(state).cuda()
                 target = Variable(target).cuda(non_blocking=True)
 
-            output = model(input)
+            output = model(input, state)
 
             loss = criterion(output, target)
 
@@ -203,6 +243,12 @@ def validate(dataloader, model, criterion, args, logger):
     return losses.mean
 
 
+def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
+    torch.save(state, filename)
+    if is_best:
+        shutil.copyfile(filename, 'model_best.pth.tar')
+
+
 class RunningAverage(object):
 
     def __init__(self):
@@ -217,7 +263,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Drone driving training with Pytorch')
 
-    parser.add_argument('--epochs', default=90, type=int, metavar='N',
+    parser.add_argument('--epochs', default=60, type=int, metavar='N',
                         help='number of total epochs to run')
 
 #    parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
@@ -230,13 +276,17 @@ if __name__ == '__main__':
     parser.add_argument('--lr', default=0.1, type=float, metavar='LR', 
                         help='initial learning rate')
 
-    parser.add_argument('--batch_size', default=32, type=int, metavar='N',
+    parser.add_argument('--batch_size', default=64, type=int, metavar='N',
                         help='mini-batch size (default: 32)')
     parser.add_argument('--num_workers', default=4, type=int, metavar='N',
                         help='number of data loading workers (default: 4)')
 
     parser.add_argument('--print_freq', default=100, type=int,
                         metavar='N', help='print frequency (default: 10)')
+    parser.add_argument('--validate', action='store_true',
+                        help='evaluate model on validation set')
+    parser.add_argument('--resume', default='', type=str, metavar='PATH',
+                        help='path to latest checkpoint (default: none)')
 
     args = parser.parse_args()
 
@@ -246,5 +296,4 @@ if __name__ == '__main__':
     logger.setLevel(logging.DEBUG)
 
     main(args, logger)
-
 

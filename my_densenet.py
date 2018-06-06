@@ -5,7 +5,8 @@ import torch.nn.functional as F
 import torch.utils.model_zoo as model_zoo
 from collections import OrderedDict
 
-__all__ = ['DenseNet', 'densenet121', 'densenet169', 'densenet201', 'densenet161', 'densenet_drone']
+#__all__ = ['DenseNet', 'densenet121', 'densenet169', 'densenet201', 'densenet161', 'densenet_drone']
+__all__ = ['simple_net', 'densenet_drone']
 
 
 model_urls = {
@@ -15,9 +16,82 @@ model_urls = {
     'densenet161': 'https://download.pytorch.org/models/densenet161-8d451a50.pth',
 }
 
+#class _SimpleLayer(nn.Sequential):
+#    def __init__(self, num_input_features, growth_rate, bn_size, drop_rate):
+#        super(_DenseLayer, self).__init__()
+#        self.add_module('norm1', nn.BatchNorm2d(num_input_features)),
+#        self.add_module('relu1', nn.ReLU(inplace=True)),
+#        self.add_module('conv1', nn.Conv2d(num_input_features, bn_size *
+#                        growth_rate, kernel_size=1, stride=1, bias=False)),
+#        self.add_module('norm2', nn.BatchNorm2d(bn_size * growth_rate)),
+#        self.add_module('relu2', nn.ReLU(inplace=True)),
+#        self.add_module('conv2', nn.Conv2d(bn_size * growth_rate, growth_rate,
+#                        kernel_size=3, stride=1, padding=1, bias=False)),
+#        self.drop_rate = drop_rate
+#
+#    def forward(self, x):
+#        new_features = super(_DenseLayer, self).forward(x)
+#        if self.drop_rate > 0:
+#            new_features = F.dropout(new_features, p=self.drop_rate, training=self.training)
+#        return torch.cat([x, new_features], 1)
+
+class SimpleNet(nn.Module):
+    def __init__(self):
+        super(SimpleNet, self).__init__()
+
+        self.features = nn.Sequential(OrderedDict([
+            ('conv0', nn.Conv2d(3, 32, kernel_size=3, padding=1, bias=True)),
+            ('relu0', nn.ReLU(inplace=True)),
+            ('pool0', nn.MaxPool2d(kernel_size=3, stride=2, padding=1)),
+
+            ('conv1', nn.Conv2d(32, 32, kernel_size=3, padding=1, bias=True)),
+            ('relu1', nn.ReLU(inplace=True)),
+            ('pool1', nn.MaxPool2d(kernel_size=3, stride=2, padding=1)),
+
+            ('conv2', nn.Conv2d(32, 32, kernel_size=3, padding=1, bias=True)),
+            ('relu2', nn.ReLU(inplace=True)),
+            ('pool2', nn.MaxPool2d(kernel_size=3, stride=2, padding=1)),
+
+            ('conv3', nn.Conv2d(32, 64, kernel_size=3, padding=1, bias=True)),
+            ('relu3', nn.ReLU(inplace=True)),
+            ('pool3', nn.MaxPool2d(kernel_size=3, stride=2, padding=1)),
+
+            ('conv4', nn.Conv2d(64, 64, kernel_size=3, padding=1, bias=True)),
+            ('relu4', nn.ReLU(inplace=True)),
+            ('pool4', nn.MaxPool2d(kernel_size=3, stride=2, padding=1)),
+
+            ('dropout',  nn.Dropout(p=0.5)),
+            ]))
+        
+        # Global average pooling
+        #self.avg_pool = nn.AvgPool2d(kernel_size=(4,8))
+
+        # Linear layer
+        self.classifier = nn.Sequential(OrderedDict([
+            ('dense0', nn.Linear(64 * 4 * 8 + 4, 512)),
+            ('dropout0', nn.Dropout(p=0.2)),
+            ('dense1', nn.Linear(512, 64)),
+            ('dropout1', nn.Dropout(p=0.2)),
+            ('dense2', nn.Linear(64, 1)),
+            ]))
+
+    def forward(self, image, state):
+        x = self.features(image)
+        x = x.view(x.size(0), -1)
+        x = torch.cat([x, state], dim=1)
+        x = self.classifier(x)
+        
+        return x 
+
+
+def simple_net():
+    model = SimpleNet()
+    return model
+
+
 # TODO: Modify densenet to fit to drone image
 def densenet_drone():
-    model = DenseNet(num_init_features=64, growth_rate=32, block_config=(6, 12, 24, 16),
+    model = DenseNet(num_init_features=64, growth_rate=32, block_config=(3, 6, 12, 8),
                      num_classes=1)
     return model
 
@@ -236,11 +310,15 @@ if __name__ == "__main__":
 
     batch_size = 32
     input = Variable(torch.randn([batch_size, 3, 128, 256])).cuda()
+    state = Variable(torch.randn([batch_size, 4])).cuda()
     target = Variable(torch.randn([batch_size, 1])).cuda()
     criterion = nn.MSELoss().cuda()
 
-    model = densenet_drone().cuda()
-    output = model(input)
+    #model = densenet_drone()
+    model = simple_net()
+    model = model.cuda()
+
+    output = model(input, state)
     pdb.set_trace()
     loss = criterion(output, target)
     loss.backward()
